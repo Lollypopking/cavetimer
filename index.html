@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaveTimer</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px;
+  background: #101512; color: #f3f5f3;
+  font-family: -apple-system, sans-serif;
+}
+h1 { text-align: center; font-size: 32px; }
+.subtitle { text-align: center; color: #aab5ad; }
+.timer {
+  background: #202923; border: 1px solid #39483d;
+  border-radius: 20px; padding: 20px;
+  margin: 22px 0;
+}
+h2 { font-size: 20px; margin: 0 0 14px; }
+.time {
+  font-size: 48px; font-weight: 700;
+  text-align: center; font-variant-numeric: tabular-nums;
+  margin: 18px 0;
+}
+.buttons { display: flex; gap: 8px; }
+button {
+  flex: 1; border: 0; border-radius: 12px;
+  padding: 13px 5px; font-size: 16px;
+  font-weight: 600; background: #d9e9dc;
+  color: #17251b;
+}
+button.stop { background: #39483e; color: white; }
+.status { text-align: center; color: #b5c7b8; }
+</style>
+</head>
+<body>
+<h1>🍷 CaveTimer</h1>
+<p class="subtitle">Barrel cleaning timers</p>
+<div id="timers"></div>
+
+<script>
+const settings = [
+  { name: "Forró hordómosás", minutes: 9 },
+  { name: "Gőzölés", minutes: 9 },
+  { name: "Hideg hordómosás", minutes: 5 }
+];
+
+const timers = settings.map((s, i) => ({
+  ...s, remaining: s.minutes * 60,
+  running: false, end: 0, interval: null,
+  finished: false, id: i
+}));
+
+const container = document.getElementById("timers");
+
+function format(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return String(m).padStart(2, "0") + ":" +
+         String(s).padStart(2, "0");
+}
+
+container.innerHTML = timers.map(t => `
+  <section class="timer">
+    <h2>${t.name}</h2>
+    <div class="time" id="time${t.id}">
+      ${format(t.remaining)}
+    </div>
+    <p class="status" id="status${t.id}">Készen áll</p>
+    <div class="buttons">
+      <button onclick="startTimer(${t.id})">▶ Indítás</button>
+      <button class="stop" onclick="pauseTimer(${t.id})">Ⅱ Szünet</button>
+      <button class="stop" onclick="resetTimer(${t.id})">↻ Újra</button>
+    </div>
+  </section>
+`).join("");
+
+function update(t) {
+  document.getElementById("time" + t.id).textContent =
+    format(t.remaining);
+}
+
+function startTimer(id) {
+  const t = timers[id];
+  if (t.running || t.finished) return;
+
+  if (t.remaining <= 0) return;
+
+  t.running = true;
+  t.end = Date.now() + t.remaining * 1000;
+  document.getElementById("status" + id).textContent = "Folyamatban…";
+
+  t.interval = setInterval(() => {
+    t.remaining = Math.max(0,
+      Math.ceil((t.end - Date.now()) / 1000));
+    update(t);
+
+    if (t.remaining <= 0) {
+      clearInterval(t.interval);
+      t.running = false;
+      t.finished = true;
+      document.getElementById("status" + id).textContent =
+        "✓ KÉSZ – A mosás befejeződött!";
+      if ("vibrate" in navigator) navigator.vibrate([300, 150, 300]);
+      alert(t.name + " – Lejárt az idő!");
+    }
+  }, 250);
+}
+
+function pauseTimer(id) {
+  const t = timers[id];
+  if (!t.running) return;
+  t.remaining = Math.max(0,
+    Math.ceil((t.end - Date.now()) / 1000));
+  clearInterval(t.interval);
+  t.running = false;
+  update(t);
+  document.getElementById("status" + id).textContent = "Szüneteltetve";
+}
+
+function resetTimer(id) {
+  const t = timers[id];
+  clearInterval(t.interval);
+  t.running = false;
+  t.finished = false;
+  t.remaining = t.minutes * 60;
+  update(t);
+  document.getElementById("status" + id).textContent = "Készen áll";
+}
+</script>
+</body>
+</html>
