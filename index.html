@@ -1,135 +1,279 @@
 
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CaveTimer</title>
+
 <style>
 * { box-sizing: border-box; }
+
 body {
-  margin: 0; padding: 24px 16px;
-  background: #101512; color: #f3f5f3;
+  margin: 0;
+  padding: 24px 16px;
+  background: #101512;
+  color: #f3f5f3;
   font-family: -apple-system, sans-serif;
 }
-h1 { text-align: center; font-size: 32px; }
-.subtitle { text-align: center; color: #aab5ad; }
+
+h1 {
+  text-align: center;
+  font-size: 32px;
+}
+
+.subtitle {
+  text-align: center;
+  color: #aab5ad;
+}
+
 .timer {
-  background: #202923; border: 1px solid #39483d;
-  border-radius: 20px; padding: 20px;
-  margin: 22px 0;
+  max-width: 500px;
+  margin: 24px auto;
+  padding: 24px;
+  background: #202923;
+  border: 1px solid #39483d;
+  border-radius: 20px;
 }
-h2 { font-size: 20px; margin: 0 0 14px; }
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: #b5c7b8;
+}
+
+select {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #526457;
+  background: #101512;
+  color: white;
+  font-size: 16px;
+}
+
 .time {
-  font-size: 48px; font-weight: 700;
-  text-align: center; font-variant-numeric: tabular-nums;
-  margin: 18px 0;
+  font-size: 56px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  margin: 24px 0;
 }
-.buttons { display: flex; gap: 8px; }
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 button {
-  flex: 1; border: 0; border-radius: 12px;
-  padding: 13px 5px; font-size: 16px;
-  font-weight: 600; background: #d9e9dc;
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 8px;
+  font-size: 16px;
+  font-weight: 600;
+  background: #d9e9dc;
   color: #17251b;
+  cursor: pointer;
 }
-button.stop { background: #39483e; color: white; }
-.status { text-align: center; color: #b5c7b8; }
+
+button.stop {
+  background: #39483e;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.status {
+  text-align: center;
+  color: #b5c7b8;
+  min-height: 24px;
+}
 </style>
 </head>
+
 <body>
+
 <h1>🍷 CaveTimer</h1>
 <p class="subtitle">Barrel cleaning timers</p>
-<div id="timers"></div>
+
+<div class="timer">
+
+  <label for="timerSelect">Select timer</label>
+
+  <select id="timerSelect">
+    <option value="0">Hot Water Barrel Wash</option>
+    <option value="1">Steaming</option>
+    <option value="2">Cold Water Barrel Wash</option>
+  </select>
+
+  <div class="time" id="time">09:00</div>
+
+  <p class="status" id="status">Ready</p>
+
+  <div class="buttons">
+    <button id="minusButton" class="stop">−1 min</button>
+    <button id="plusButton" class="stop">+1 min</button>
+  </div>
+
+  <div class="buttons">
+    <button id="startButton">▶ Start</button>
+    <button id="resetButton" class="stop">↻ Reset</button>
+  </div>
+
+</div>
 
 <script>
 const settings = [
-  { name: "Forró hordómosás", minutes: 9 },
-  { name: "Gőzölés", minutes: 9 },
-  { name: "Hideg hordómosás", minutes: 5 }
+  { name: "Hot Water Barrel Wash", minutes: 9 },
+  { name: "Steaming", minutes: 9 },
+  { name: "Cold Water Barrel Wash", minutes: 5 }
 ];
 
 const timers = settings.map((s, i) => ({
-  ...s, remaining: s.minutes * 60,
-  running: false, end: 0, interval: null,
-  finished: false, id: i
+  ...s,
+  remaining: s.minutes * 60,
+  running: false,
+  finished: false,
+  end: 0,
+  interval: null,
+  id: i
 }));
 
-const container = document.getElementById("timers");
+let selectedId = 0;
+
+const select = document.getElementById("timerSelect");
+const timeDisplay = document.getElementById("time");
+const statusDisplay = document.getElementById("status");
+const startButton = document.getElementById("startButton");
+const resetButton = document.getElementById("resetButton");
+const plusButton = document.getElementById("plusButton");
+const minusButton = document.getElementById("minusButton");
+
+function currentTimer() {
+  return timers[selectedId];
+}
 
 function format(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
+
   return String(m).padStart(2, "0") + ":" +
          String(s).padStart(2, "0");
 }
 
-container.innerHTML = timers.map(t => `
-  <section class="timer">
-    <h2>${t.name}</h2>
-    <div class="time" id="time${t.id}">
-      ${format(t.remaining)}
-    </div>
-    <p class="status" id="status${t.id}">Készen áll</p>
-    <div class="buttons">
-      <button onclick="startTimer(${t.id})">▶ Indítás</button>
-      <button class="stop" onclick="pauseTimer(${t.id})">Ⅱ Szünet</button>
-      <button class="stop" onclick="resetTimer(${t.id})">↻ Újra</button>
-    </div>
-  </section>
-`).join("");
+function updateDisplay() {
+  const t = currentTimer();
 
-function update(t) {
-  document.getElementById("time" + t.id).textContent =
-    format(t.remaining);
+  timeDisplay.textContent = format(t.remaining);
+
+  if (t.running || t.finished) {
+    plusButton.disabled = true;
+    minusButton.disabled = true;
+    select.disabled = true;
+  } else {
+    plusButton.disabled = false;
+    minusButton.disabled = t.remaining <= 60;
+    select.disabled = false;
+  }
+
+  startButton.disabled = t.running || t.finished;
 }
 
-function startTimer(id) {
-  const t = timers[id];
+function adjustTime(minutes) {
+  const t = currentTimer();
+
   if (t.running || t.finished) return;
 
-  if (t.remaining <= 0) return;
+  t.remaining += minutes * 60;
+
+  if (t.remaining < 60) {
+    t.remaining = 60;
+  }
+
+  updateDisplay();
+}
+
+function startTimer() {
+  const t = currentTimer();
+
+  if (t.running || t.finished || t.remaining <= 0) return;
 
   t.running = true;
   t.end = Date.now() + t.remaining * 1000;
-  document.getElementById("status" + id).textContent = "Folyamatban…";
+
+  statusDisplay.textContent = "Running...";
+
+  updateDisplay();
 
   t.interval = setInterval(() => {
-    t.remaining = Math.max(0,
-      Math.ceil((t.end - Date.now()) / 1000));
-    update(t);
+    t.remaining = Math.max(
+      0,
+      Math.ceil((t.end - Date.now()) / 1000)
+    );
+
+    timeDisplay.textContent = format(t.remaining);
 
     if (t.remaining <= 0) {
       clearInterval(t.interval);
+
       t.running = false;
       t.finished = true;
-      document.getElementById("status" + id).textContent =
-        "✓ KÉSZ – A mosás befejeződött!";
-      if ("vibrate" in navigator) navigator.vibrate([300, 150, 300]);
-      alert(t.name + " – Lejárt az idő!");
+
+      statusDisplay.textContent = "✓ DONE – Cleaning finished!";
+
+      updateDisplay();
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate([300, 150, 300]);
+      }
+
+      alert(t.name + " – Time is up!");
     }
   }, 250);
 }
 
-function pauseTimer(id) {
-  const t = timers[id];
-  if (!t.running) return;
-  t.remaining = Math.max(0,
-    Math.ceil((t.end - Date.now()) / 1000));
-  clearInterval(t.interval);
-  t.running = false;
-  update(t);
-  document.getElementById("status" + id).textContent = "Szüneteltetve";
-}
+function resetTimer() {
+  const t = currentTimer();
 
-function resetTimer(id) {
-  const t = timers[id];
   clearInterval(t.interval);
+
   t.running = false;
   t.finished = false;
+
+  // Restore the original default time
   t.remaining = t.minutes * 60;
-  update(t);
-  document.getElementById("status" + id).textContent = "Készen áll";
+
+  statusDisplay.textContent = "Ready";
+
+  updateDisplay();
 }
+
+select.addEventListener("change", () => {
+  selectedId = Number(select.value);
+
+  statusDisplay.textContent = "Ready";
+
+  updateDisplay();
+});
+
+plusButton.addEventListener("click", () => {
+  adjustTime(1);
+});
+
+minusButton.addEventListener("click", () => {
+  adjustTime(-1);
+});
+
+startButton.addEventListener("click", startTimer);
+resetButton.addEventListener("click", resetTimer);
+
+updateDisplay();
 </script>
+
 </body>
 </html>
