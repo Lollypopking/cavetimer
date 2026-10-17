@@ -7,7 +7,9 @@
 <title>CaveTimer</title>
 
 <style>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -29,35 +31,24 @@ h1 {
 
 .timer {
   max-width: 500px;
-  margin: 24px auto;
-  padding: 24px;
+  margin: 22px auto;
+  padding: 22px;
   background: #202923;
   border: 1px solid #39483d;
   border-radius: 20px;
 }
 
-label {
-  display: block;
-  margin-bottom: 8px;
-  color: #b5c7b8;
-}
-
-select {
-  width: 100%;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid #526457;
-  background: #101512;
-  color: white;
-  font-size: 16px;
+h2 {
+  font-size: 21px;
+  margin: 0 0 14px;
 }
 
 .time {
-  font-size: 56px;
+  font-size: 52px;
   font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  margin: 24px 0;
+  margin: 20px 0;
 }
 
 .buttons {
@@ -101,31 +92,7 @@ button:disabled {
 <h1>🍷 CaveTimer</h1>
 <p class="subtitle">Barrel cleaning timers</p>
 
-<div class="timer">
-
-  <label for="timerSelect">Select timer</label>
-
-  <select id="timerSelect">
-    <option value="0">Hot Water Barrel Wash</option>
-    <option value="1">Steaming</option>
-    <option value="2">Cold Water Barrel Wash</option>
-  </select>
-
-  <div class="time" id="time">09:00</div>
-
-  <p class="status" id="status">Ready</p>
-
-  <div class="buttons">
-    <button id="minusButton" class="stop">−1 min</button>
-    <button id="plusButton" class="stop">+1 min</button>
-  </div>
-
-  <div class="buttons">
-    <button id="startButton">▶ Start</button>
-    <button id="resetButton" class="stop">↻ Reset</button>
-  </div>
-
-</div>
+<div id="timers"></div>
 
 <script>
 const settings = [
@@ -144,19 +111,7 @@ const timers = settings.map((s, i) => ({
   id: i
 }));
 
-let selectedId = 0;
-
-const select = document.getElementById("timerSelect");
-const timeDisplay = document.getElementById("time");
-const statusDisplay = document.getElementById("status");
-const startButton = document.getElementById("startButton");
-const resetButton = document.getElementById("resetButton");
-const plusButton = document.getElementById("plusButton");
-const minusButton = document.getElementById("minusButton");
-
-function currentTimer() {
-  return timers[selectedId];
-}
+const container = document.getElementById("timers");
 
 function format(seconds) {
   const m = Math.floor(seconds / 60);
@@ -166,49 +121,88 @@ function format(seconds) {
          String(s).padStart(2, "0");
 }
 
-function updateDisplay() {
-  const t = currentTimer();
+// Create all three timer cards
+container.innerHTML = timers.map(t => `
+  <section class="timer">
 
-  timeDisplay.textContent = format(t.remaining);
+    <h2>${t.name}</h2>
 
-  if (t.running || t.finished) {
-    plusButton.disabled = true;
-    minusButton.disabled = true;
-    select.disabled = true;
-  } else {
-    plusButton.disabled = false;
-    minusButton.disabled = t.remaining <= 60;
-    select.disabled = false;
-  }
+    <div class="time" id="time${t.id}">
+      ${format(t.remaining)}
+    </div>
 
-  startButton.disabled = t.running || t.finished;
+    <p class="status" id="status${t.id}">
+      Ready
+    </p>
+
+    <div class="buttons">
+      <button class="stop" id="minus${t.id}">
+        −1 min
+      </button>
+
+      <button class="stop" id="plus${t.id}">
+        +1 min
+      </button>
+    </div>
+
+    <div class="buttons">
+      <button id="start${t.id}">
+        ▶ Start
+      </button>
+
+      <button class="stop" id="reset${t.id}">
+        ↻ Reset
+      </button>
+    </div>
+
+  </section>
+`).join("");
+
+function updateDisplay(t) {
+  document.getElementById("time" + t.id).textContent =
+    format(t.remaining);
+
+  // Time adjustment is only available before starting
+  document.getElementById("plus" + t.id).disabled =
+    t.running || t.finished;
+
+  document.getElementById("minus" + t.id).disabled =
+    t.running || t.finished || t.remaining <= 60;
+
+  document.getElementById("start" + t.id).disabled =
+    t.running || t.finished;
 }
 
-function adjustTime(minutes) {
-  const t = currentTimer();
+function adjustTime(id, minutes) {
+  const t = timers[id];
 
+  // Prevent changes while running or finished
   if (t.running || t.finished) return;
 
   t.remaining += minutes * 60;
 
+  // Minimum timer duration: 1 minute
   if (t.remaining < 60) {
     t.remaining = 60;
   }
 
-  updateDisplay();
+  updateDisplay(t);
 }
 
-function startTimer() {
-  const t = currentTimer();
+function startTimer(id) {
+  const t = timers[id];
 
-  if (t.running || t.finished || t.remaining <= 0) return;
+  if (t.running || t.finished || t.remaining <= 0) {
+    return;
+  }
 
   t.running = true;
   t.end = Date.now() + t.remaining * 1000;
 
-  statusDisplay.textContent = "Running...";
+  document.getElementById("status" + id).textContent =
+    "Running...";
 
-  updateDisplay();
+  updateDisplay(t);
 
   t.interval = setInterval(() => {
     t.remaining = Math.max(
@@ -216,7 +210,7 @@ function startTimer() {
       Math.ceil((t.end - Date.now()) / 1000)
     );
 
-    timeDisplay.textContent = format(t.remaining);
+    updateDisplay(t);
 
     if (t.remaining <= 0) {
       clearInterval(t.interval);
@@ -224,9 +218,10 @@ function startTimer() {
       t.running = false;
       t.finished = true;
 
-      statusDisplay.textContent = "✓ DONE – Cleaning finished!";
+      document.getElementById("status" + id).textContent =
+        "✓ DONE – Cleaning finished!";
 
-      updateDisplay();
+      updateDisplay(t);
 
       if ("vibrate" in navigator) {
         navigator.vibrate([300, 150, 300]);
@@ -237,42 +232,47 @@ function startTimer() {
   }, 250);
 }
 
-function resetTimer() {
-  const t = currentTimer();
+function resetTimer(id) {
+  const t = timers[id];
 
   clearInterval(t.interval);
 
   t.running = false;
   t.finished = false;
 
-  // Restore the original default time
+  // Restore original default time
   t.remaining = t.minutes * 60;
 
-  statusDisplay.textContent = "Ready";
+  document.getElementById("status" + id).textContent =
+    "Ready";
 
-  updateDisplay();
+  updateDisplay(t);
 }
 
-select.addEventListener("change", () => {
-  selectedId = Number(select.value);
+// Connect each timer's own buttons
+timers.forEach(t => {
+  document.getElementById("minus" + t.id)
+    .addEventListener("click", () => {
+      adjustTime(t.id, -1);
+    });
 
-  statusDisplay.textContent = "Ready";
+  document.getElementById("plus" + t.id)
+    .addEventListener("click", () => {
+      adjustTime(t.id, 1);
+    });
 
-  updateDisplay();
+  document.getElementById("start" + t.id)
+    .addEventListener("click", () => {
+      startTimer(t.id);
+    });
+
+  document.getElementById("reset" + t.id)
+    .addEventListener("click", () => {
+      resetTimer(t.id);
+    });
+
+  updateDisplay(t);
 });
-
-plusButton.addEventListener("click", () => {
-  adjustTime(1);
-});
-
-minusButton.addEventListener("click", () => {
-  adjustTime(-1);
-});
-
-startButton.addEventListener("click", startTimer);
-resetButton.addEventListener("click", resetTimer);
-
-updateDisplay();
 </script>
 
 </body>
